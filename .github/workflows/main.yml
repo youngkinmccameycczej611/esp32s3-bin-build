@@ -1,0 +1,50 @@
+name: ESP32-S3 Build BIN
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Arduino CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          sudo mv bin/arduino-cli /usr/local/bin/arduino-cli
+          arduino-cli version
+
+      - name: Arduino CLI config
+        run: |
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "WiFi"
+          arduino-cli lib install "HTTPClient"
+          arduino-cli lib install "HTTPUpdate"
+
+      - name: Compile Devon.ino → BIN
+        run: |
+          mkdir build
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32s3:FlashSize=16MB,PSRAM=enabled \
+            --output-dir build \
+            .
+
+      - name: Upload BIN artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-bin
+          path: build/*.bin
