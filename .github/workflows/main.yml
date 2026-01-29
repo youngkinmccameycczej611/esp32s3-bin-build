@@ -1,50 +1,50 @@
 name: ESP32-S3 Build BIN
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+  workflow_dispatch:   # 手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 拉取仓库
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
+      # 2. 安装 Arduino CLI
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          sudo mv bin/arduino-cli /usr/local/bin/arduino-cli
+          export PATH="$HOME/bin:$PATH"
           arduino-cli version
 
+      # 3. 配置 Arduino CLI
       - name: Arduino CLI config
         run: |
           arduino-cli config init
           arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
+      # 4. 安装 ESP32 Core
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32
+          arduino-cli core install esp32:esp32@3.3.6
 
+      # 5. 安装所需库（HTTPUpdate 随 core 自带，不用安装）
       - name: Install libraries
         run: |
           arduino-cli lib install "WiFi"
           arduino-cli lib install "HTTPClient"
-          arduino-cli lib install "HTTPUpdate"
 
+      # 6. 编译 Devon.ino
       - name: Compile Devon.ino → BIN
         run: |
-          mkdir build
-          arduino-cli compile \
-            --fqbn esp32:esp32:esp32s3:FlashSize=16MB,PSRAM=enabled \
-            --output-dir build \
-            .
+          arduino-cli compile --fqbn esp32:esp32:esp32s3 ./Devon.ino --output-dir ./build
 
+      # 7. 上传生成的 BIN 作为 artifact
       - name: Upload BIN artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: esp32s3-bin
-          path: build/*.bin
+          path: ./build/*.bin
