@@ -1,7 +1,10 @@
 name: ESP32-S3 Build BIN
 
 on:
-  workflow_dispatch:   # 手动触发
+  push:
+    branches:
+      - main   # 或你用的默认分支
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,39 +15,46 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2. 安装 Arduino CLI
+      # 2. 安装 Arduino CLI 并设置 PATH
       - name: Install Arduino CLI
         run: |
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          export PATH="$HOME/bin:$PATH"
+          export PATH="$HOME/workspace/bin:$PATH"
           arduino-cli version
 
-      # 3. 配置 Arduino CLI
+      # 3. Arduino CLI 配置
       - name: Arduino CLI config
         run: |
+          export PATH="$HOME/workspace/bin:$PATH"
           arduino-cli config init
           arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
       # 4. 安装 ESP32 Core
       - name: Install ESP32 core
         run: |
+          export PATH="$HOME/workspace/bin:$PATH"
           arduino-cli core update-index
           arduino-cli core install esp32:esp32@3.3.6
 
-      # 5. 安装所需库
+      # 5. 安装库
       - name: Install libraries
         run: |
+          export PATH="$HOME/workspace/bin:$PATH"
           arduino-cli lib install "WiFi"
           arduino-cli lib install "HTTPClient"
+          arduino-cli lib install "HTTPUpdate"
 
       # 6. 编译 Devon.ino
       - name: Compile Devon.ino → BIN
         run: |
+          export PATH="$HOME/workspace/bin:$PATH"
+          mkdir -p build
           arduino-cli compile --fqbn esp32:esp32:esp32s3 ./Devon.ino --output-dir ./build
 
-      # 7. 上传生成的 BIN 作为 artifact（v4）
-      - name: Upload BIN artifact
-        uses: actions/upload-artifact@v4
+      # 7. 创建 Release 并上传 BIN
+      - name: Create Release and upload BIN
+        uses: softprops/action-gh-release@v1
         with:
-          name: esp32s3-bin
-          path: ./build/*.bin
+          files: build/*.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
